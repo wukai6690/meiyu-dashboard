@@ -54,7 +54,7 @@ export async function PUT(req: NextRequest) {
         .single();
 
       if (artwork) {
-        const score = artwork.evaluations?.total_score || 0;
+        const score = artwork.evaluations?.[0]?.total_score || 0;
         await admin.from('student_exp').insert({
           student_id: artwork.student_id,
           exp_amount: score >= 14 ? 50 : score >= 12 ? 30 : 20,

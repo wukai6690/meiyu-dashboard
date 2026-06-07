@@ -4,8 +4,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function middleware(req: NextRequest) {
   let supabaseResponse = NextResponse.next({ request: req });
 
-  const publicPaths = ['/', '/login', '/auth/callback', '/api/evaluate', '/student', '/teacher', '/login/demo'];
-  const isPublic = publicPaths.some(p => req.nextUrl.pathname === p || req.nextUrl.pathname.startsWith('/_next'));
+  const publicPaths = ['/', '/demo', '/login', '/auth/callback', '/api/evaluate', '/student', '/teacher', '/evaluation', '/login/demo'];
+  const isPublic = publicPaths.some(p => req.nextUrl.pathname === p || req.nextUrl.pathname.startsWith(p + '/') || req.nextUrl.pathname.startsWith('/_next'));
 
   if (isPublic) return supabaseResponse;
 

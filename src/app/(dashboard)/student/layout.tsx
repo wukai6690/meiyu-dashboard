@@ -1,18 +1,4 @@
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { getLevelInfo } from '@/lib/utils';
-
-export default async function StudentLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    const { data: { user: anonymous } } = await supabase.auth.getUser();
-    if (!anonymous) {
-      redirect('/login');
-    }
-  }
-
+export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b sticky top-0 z-40">
