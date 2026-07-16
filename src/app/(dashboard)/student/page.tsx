@@ -133,10 +133,11 @@ export default async function StudentPage() {
           .select('badges(name, icon)')
           .eq('student_id', user.id);
         if (badgeData?.length) {
-          badges = badgeData.map((b: { badges: { name: string; icon: string } }) => ({
-            id: b.badges.name,
-            name: b.badges.name,
-            icon: b.badges.icon || '🏅',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          badges = badgeData.map((b: any) => ({
+            id: b.badges?.name || '',
+            name: b.badges?.name || '',
+            icon: b.badges?.icon || '🏅',
           }));
         }
       } catch { /* badges optional */ }
