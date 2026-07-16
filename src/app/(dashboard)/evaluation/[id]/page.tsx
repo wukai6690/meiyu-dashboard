@@ -1,102 +1,31 @@
-import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadarChart } from '@/components/charts/radar-chart';
 import { ScoreBreakdownChart } from '@/components/charts/score-breakdown';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Award, Sparkles, TrendingUp, Lightbulb, Paintbrush, Ruler, Palette, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Award, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { scoreToLetter } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-const DIM_ICONS: Record<string, React.ReactNode> = {
-  '构图': <Ruler className="w-4 h-4" />,
-  '色彩': <Palette className="w-4 h-4" />,
-  '造型': <Paintbrush className="w-4 h-4" />,
-  '创意': <Lightbulb className="w-4 h-4" />,
-  '完整性': <CheckCircle2 className="w-4 h-4" />,
-};
-
-const DIM_COLORS: Record<string, string> = {
-  '构图': 'border-purple-300 bg-purple-50',
-  '色彩': 'border-amber-300 bg-amber-50',
-  '造型': 'border-emerald-300 bg-emerald-50',
-  '创意': 'border-rose-300 bg-rose-50',
-  '完整性': 'border-blue-300 bg-blue-50',
-};
-
-const GRADE_CONFIG: Record<string, { bg: string; text: string; icon: string }> = {
-  '杰出': { bg: 'bg-gradient-to-r from-purple-600 to-indigo-600', text: 'text-white', icon: '🏆' },
-  '优秀': { bg: 'bg-gradient-to-r from-emerald-500 to-teal-500', text: 'text-white', icon: '⭐' },
-  '良好': { bg: 'bg-gradient-to-r from-amber-400 to-orange-400', text: 'text-white', icon: '👍' },
-  '一般': { bg: 'bg-gradient-to-r from-gray-400 to-gray-500', text: 'text-white', icon: '🌱' },
-};
-
-// Demo data for unauthenticated users
-const DEMO_EVALUATION = {
-  artwork: {
-    title: '夕阳下的校园',
-    image_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop',
-    created_at: new Date().toISOString(),
-    course_name: '水彩画',
-  },
-  evaluation: {
-    total_score: 13,
-    grade: '优秀' as const,
-    ai_feedback: '这件作品整体完成得很好！画面温馨有感染力，色彩运用和构图都有亮点。在造型细节和画面完整性上还有提升空间——这正是你下一次突破的方向。',
-    comp_feedback: '主体突出布局饱满，空间层次处理得当！',
-    color_feedback: '色调和谐优美，色彩情感表达很到位！',
-    modeling_feedback: '造型基本准确，可以加强一些细节的刻画',
-    creativity_feedback: '想法不错，可以更大胆地展现自己的独特视角',
-    completeness_feedback: '大部分区域处理得很好，注意画面四角的收尾',
-    score_composition: 3,
-    score_color: 3,
-    score_modeling: 2,
-    score_creativity: 3,
-    score_completeness: 2,
-    ai_raw_json: null,
-  },
+const DEMO = {
+  artwork: { title: '夕阳下的校园', image_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop', course_name: '水彩画', created_at: new Date().toISOString() },
+  evaluation: { total_score: 14, grade: '杰出' as const, ai_feedback: '这幅作品展现了出色的艺术感知力和表现技巧！构图均衡有层次，色彩运用成熟温暖，画面整体感染力很强。在细节完整性上稍加完善就更加完美了。继续保持这份创作热情！', comp_feedback: '主体突出布局饱满，空间层次处理得当！', color_feedback: '色调和谐优美，色彩情感表达很到位！', modeling_feedback: '形态捕捉生动准确，线条流畅有表现力！', creativity_feedback: '创意独特视角新颖，画面叙事感很强！', completeness_feedback: '大部分区域处理得很好，注意画面四角的收尾', score_composition: 3, score_color: 3, score_modeling: 3, score_creativity: 3, score_completeness: 2 },
 };
 
 export default async function EvaluationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
-  let artworkData = DEMO_EVALUATION.artwork;
-  let evalData = DEMO_EVALUATION.evaluation;
-  let radarData = [
-    { dimension: '构图', score: 3 },
-    { dimension: '色彩', score: 3 },
-    { dimension: '造型', score: 2 },
-    { dimension: '创意', score: 3 },
-    { dimension: '完整性', score: 2 },
-  ];
+  let artworkData = DEMO.artwork;
+  let evalData = DEMO.evaluation;
 
   try {
+    const { createClient } = await import('@/lib/supabase/server');
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (user) {
-      const { data: artwork } = await supabase
-        .from('artworks')
-        .select('*, evaluations(*)')
-        .eq('id', id)
-        .single();
-
-      if (artwork) {
-        artworkData = artwork;
-        if (artwork.evaluations) {
-          evalData = artwork.evaluations;
-          radarData = [
-            { dimension: '构图', score: artwork.evaluations.score_composition },
-            { dimension: '色彩', score: artwork.evaluations.score_color },
-            { dimension: '造型', score: artwork.evaluations.score_modeling },
-            { dimension: '创意', score: artwork.evaluations.score_creativity },
-            { dimension: '完整性', score: artwork.evaluations.score_completeness },
-          ];
-        }
-      }
+    const { data } = await supabase.auth.getUser();
+    if (data?.user) {
+      const { data: artwork } = await supabase.from('artworks').select('*, evaluations(*)').eq('id', id).single();
+      if (artwork) { artworkData = artwork; if (artwork.evaluations) evalData = artwork.evaluations; }
     }
-  } catch { /* Supabase not configured, show demo data */ }
+  } catch {}
 
   const dimDetails = [
     { label: '构图', score: evalData.score_composition, feedback: evalData.comp_feedback },
@@ -106,124 +35,51 @@ export default async function EvaluationDetailPage({ params }: { params: Promise
     { label: '完整性', score: evalData.score_completeness, feedback: evalData.completeness_feedback },
   ];
 
-  const gradeStyle = GRADE_CONFIG[evalData.grade] || GRADE_CONFIG['良好'];
+  const radarData = dimDetails.map((d) => ({ dimension: d.label, score: d.score }));
+  const gradeColors: Record<string, string> = { '杰出': 'from-purple-500 to-indigo-500', '优秀': 'from-emerald-500 to-teal-500', '良好': 'from-amber-500 to-orange-500', '一般': 'from-gray-500 to-gray-600' };
+  const dimBorders: Record<string, string> = { '构图': 'border-purple-500/30', '色彩': 'border-amber-500/30', '造型': 'border-emerald-500/30', '创意': 'border-rose-500/30', '完整性': 'border-blue-500/30' };
+  const dimIcons: Record<string, string> = { '构图': '📐', '色彩': '🎨', '造型': '✏️', '创意': '💡', '完整性': '✅' };
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-6">
-      {/* Back button */}
-      <Link href="/student" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-4">
-        <ArrowLeft className="w-4 h-4" />
-        返回作品列表
-      </Link>
+    <div className="min-h-screen bg-[#0a0a1a] text-white">
+      <div className="fixed inset-0 pointer-events-none"><div className="absolute top-0 right-0 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px]" /><div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-indigo-600/10 rounded-full blur-[100px]" /></div>
 
-      {/* Header - Artwork + Grade */}
-      <div className="grid md:grid-cols-5 gap-6 mb-8">
-        <div className="md:col-span-2">
-          <div className="aspect-[4/3] bg-gray-100 rounded-2xl overflow-hidden">
-            <img src={artworkData.image_url} alt={artworkData.title} className="w-full h-full object-cover" />
+      <header className="relative border-b border-white/10 backdrop-blur-xl bg-white/5 sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center"><Sparkles className="w-4 h-4 text-white" /></div><span className="font-bold">美育观止</span></Link>
+          <div className="flex items-center gap-3">
+            <Link href="/student"><button className="text-sm text-gray-400 hover:text-white">学生端</button></Link>
+            <Link href="/teacher"><button className="text-sm text-gray-400 hover:text-white">教师端</button></Link>
           </div>
         </div>
-        <div className="md:col-span-3 flex flex-col justify-center">
-          <h1 className="text-2xl font-bold mb-2">{artworkData.title}</h1>
-          {artworkData.course_name && (
-            <span className="inline-block px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full mb-4 w-fit">
-              {artworkData.course_name}
-            </span>
-          )}
-          <div className="flex items-center gap-4 mb-6">
-            <div className={`px-6 py-4 rounded-2xl ${gradeStyle.bg} ${gradeStyle.text}`}>
-              <span className="text-4xl mr-2">{gradeStyle.icon}</span>
-              <span className="text-3xl font-bold">{evalData.grade}</span>
+      </header>
+
+      <main className="relative max-w-5xl mx-auto px-6 py-8">
+        <Link href="/student" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"><ArrowLeft className="w-4 h-4" />返回作品列表</Link>
+
+        <div className="grid md:grid-cols-5 gap-8 mb-10">
+          <div className="md:col-span-2"><div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl"><img src={artworkData.image_url} alt={artworkData.title} className="w-full h-full object-cover" /></div></div>
+          <div className="md:col-span-3 flex flex-col justify-center">
+            <h1 className="text-2xl font-bold mb-2">{artworkData.title}</h1>
+            <div className="flex items-center gap-4 mb-6">
+              <div className={`px-6 py-4 rounded-2xl bg-gradient-to-r ${gradeColors[evalData.grade]} shadow-xl`}><span className="text-4xl font-bold text-white">{evalData.grade}</span></div>
+              <div><p className="text-3xl font-bold text-purple-400">{evalData.total_score}<span className="text-lg text-gray-500 font-normal">/15</span></p><p className="text-sm text-gray-500">综合总分</p></div>
             </div>
-            <div>
-              <p className="text-3xl font-bold text-purple-600">{evalData.total_score}<span className="text-lg text-gray-400 font-normal">/15</span></p>
-              <p className="text-sm text-gray-500">综合总分</p>
-            </div>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 backdrop-blur-sm"><div className="flex items-center gap-2 mb-2"><Sparkles className="w-4 h-4 text-purple-400" /><span className="text-sm font-medium text-purple-400">AI 综合评价</span></div><p className="text-gray-300 leading-relaxed">{evalData.ai_feedback}</p></div>
           </div>
-          {/* AI Overall Feedback */}
-          {evalData.ai_feedback && (
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-purple-600" />
-                <span className="text-sm font-medium text-purple-700">AI 综合评价</span>
-              </div>
-              <p className="text-gray-700 leading-relaxed">{evalData.ai_feedback}</p>
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* Radar Chart */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-purple-600" />
-            五维分析雷达图
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <RadarChart data={radarData} />
-        </CardContent>
-      </Card>
+        <Card className="bg-white/5 border-white/10 mb-8"><CardHeader><CardTitle className="flex items-center gap-2 text-gray-200"><Award className="w-5 h-5 text-purple-400" />五维分析雷达图</CardTitle></CardHeader><CardContent><RadarChart data={radarData} /></CardContent></Card>
 
-      {/* Per-Dimension Detail */}
-      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-indigo-600" />
-        维度详细评价
-      </h2>
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
-        {dimDetails.map((dim) => (
-          <Card key={dim.label} className={`border-2 ${DIM_COLORS[dim.label] || 'border-gray-200'}`}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-600">{DIM_ICONS[dim.label]}</span>
-                  <span className="font-semibold">{dim.label}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className={`w-3 h-6 rounded-sm ${
-                          i <= dim.score
-                            ? 'bg-purple-600'
-                            : 'bg-gray-200'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sm font-bold text-purple-600">{scoreToLetter(dim.score)}</span>
-                </div>
-              </div>
-              <p className="text-sm text-gray-600">{dim.feedback || '暂无评价'}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><TrendingUp className="w-5 h-5 text-indigo-400" />维度详细评价</h2>
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          {dimDetails.map((dim) => (<Card key={dim.label} className={`border ${dimBorders[dim.label] || 'border-white/10'} bg-white/5 backdrop-blur-sm`}><CardContent className="p-4"><div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2"><span className="text-lg">{dimIcons[dim.label]}</span><span className="font-semibold">{dim.label}</span></div><div className="flex items-center gap-2"><div className="flex gap-1">{[1, 2, 3].map((s) => (<div key={s} className={`w-3 h-6 rounded-sm ${s <= dim.score ? 'bg-purple-500' : 'bg-white/10'}`} />))}</div><span className="text-sm font-bold text-purple-400">{scoreToLetter(dim.score)}</span></div></div><p className="text-sm text-gray-400">{dim.feedback || '暂无评价'}</p></CardContent></Card>))}
+        </div>
 
-      {/* Score Breakdown Bar Chart */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-sm">得分分布对比</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ScoreBreakdownChart
-            data={dimDetails.map((d) => ({
-              dimension: d.label,
-              score: d.score,
-              letter: scoreToLetter(d.score),
-            }))}
-          />
-        </CardContent>
-      </Card>
+        <Card className="bg-white/5 border-white/10 mb-8"><CardHeader><CardTitle className="text-sm text-gray-300">得分对比</CardTitle></CardHeader><CardContent><ScoreBreakdownChart data={dimDetails.map((d) => ({ dimension: d.label, score: d.score, letter: scoreToLetter(d.score) }))} /></CardContent></Card>
 
-      {/* Actions */}
-      <div className="flex justify-center gap-4 pb-8">
-        <Link href="/student">
-          <Button variant="outline">返回首页</Button>
-        </Link>
-      </div>
-    </main>
+        <div className="text-center pb-12"><Link href="/student"><button className="px-6 py-2.5 bg-white/5 border border-white/10 rounded-xl text-gray-300 hover:bg-white/10 transition-all">返回首页</button></Link></div>
+      </main>
+    </div>
   );
 }

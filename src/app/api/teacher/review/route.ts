@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function GET() {
   try {
@@ -38,7 +38,7 @@ export async function PUT(req: NextRequest) {
     const { artwork_id, status, teacher_comment } = body;
     if (!artwork_id || !status) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
-    const admin = await createAdminClient();
+    const admin = await createServiceClient();
     const { error } = await admin
       .from('evaluations')
       .update({ status, teacher_comment, reviewed_by: user.id, reviewed_at: new Date().toISOString() })

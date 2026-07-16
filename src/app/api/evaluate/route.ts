@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import { buildEvaluationPrompt, smartMockEvaluate } from '@/lib/prompts';
 
-export const runtime = 'edge';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 function parseAIResponse(content: string): Record<string, unknown> | null {
   // Try direct JSON parse first
@@ -92,14 +91,18 @@ function normalizeEvaluation(parsed: Record<string, unknown>): Record<string, un
     total_score: totalScore,
     grade,
     overall_feedback: (parsed.overall_feedback as string) || (parsed.feedback as string) || '',
+    visual_description: (parsed.visual_description as string) || '',
+    master_guidance: (parsed.master_guidance as Record<string, unknown>) || null,
+    visual_reconstruction: (parsed.visual_reconstruction as Record<string, unknown>) || null,
   };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { artwork_id, image_url, title } = await req.json();
-    if (!artwork_id || !image_url) {
-      return NextResponse.json({ error: 'Missing artwork_id or image_url' }, { status: 400 });
+    const { artwork_id, image_url, image_data, title } = await req.json();
+    const imageSource = image_data || image_url;
+    if (!artwork_id || !imageSource) {
+      return NextResponse.json({ error: 'Missing artwork_id and image_url or image_data' }, { status: 400 });
     }
 
     const apiKey = process.env.DASHSCOPE_API_KEY;
@@ -114,11 +117,34 @@ export async function POST(req: NextRequest) {
         overall_feedback: string;
       };
 
-      // Try to save to Supabase, but don't fail if not configured
+      // Save to Supabase: create artwork first, then evaluation
       try {
-        const supabase = await createAdminClient();
+        const supabase = createServiceClient();
+
+        // Generate UUID for the artwork if not provided
+        const artId = artwork_id && artwork_id.length === 36 ? artwork_id : crypto.randomUUID();
+        const demoStudentId = '32e87443-4b26-473d-87b3-775d5bf415ce';
+
+        // Ensure demo student exists
+        await supabase.from('profiles').upsert({
+          id: demoStudentId,
+          full_name: 'Demo学生',
+          role: 'student',
+          school_name: '演示学校',
+          class_name: '演示班级',
+        });
+
+        // Create artwork record
+        await supabase.from('artworks').upsert({
+          id: artId,
+          student_id: demoStudentId,
+          title: title || '未命名作品',
+          image_url: image_data || image_url || '',
+        });
+
+        // Create evaluation record
         const { error } = await supabase.from('evaluations').upsert({
-          artwork_id,
+          artwork_id: artId,
           score_composition: dimensions['构图']?.score || 2,
           score_color: dimensions['色彩']?.score || 2,
           score_modeling: dimensions['造型']?.score || 2,
@@ -144,6 +170,9 @@ export async function POST(req: NextRequest) {
         total_score,
         grade,
         overall_feedback,
+        visual_description: '',
+        master_guidance: null,
+        visual_reconstruction: null,
         mock: true,
       });
     }
@@ -166,12 +195,12 @@ export async function POST(req: NextRequest) {
             {
               role: 'user',
               content: [
-                { type: 'image_url', image_url: { url: image_url } },
+                { type: 'image_url', image_url: { url: image_data || image_url } },
               ],
             },
           ],
-          max_tokens: 500,
-          temperature: 0.7,
+          max_tokens: 2500,
+          temperature: 0.3,
         }),
       }
     );
@@ -199,11 +228,23 @@ export async function POST(req: NextRequest) {
       overall_feedback: string;
     };
 
-    // Try to save to Supabase, but don't fail if not configured
+    // Save to Supabase
     try {
-      const supabase = await createAdminClient();
+      const supabase = createServiceClient();
+      const artId = artwork_id && artwork_id.length === 36 ? artwork_id : crypto.randomUUID();
+      const demoStudentId = '32e87443-4b26-473d-87b3-775d5bf415ce';
+
+      await supabase.from('profiles').upsert({
+        id: demoStudentId, full_name: 'Demo学生', role: 'student',
+        school_name: '演示学校', class_name: '演示班级',
+      });
+      await supabase.from('artworks').upsert({
+        id: artId, student_id: demoStudentId,
+        title: title || '未命名作品', image_url: image_data || image_url || '',
+      });
+
       const { error } = await supabase.from('evaluations').upsert({
-        artwork_id,
+        artwork_id: artId,
         score_composition: dimensions['构图']?.score || 2,
         score_color: dimensions['色彩']?.score || 2,
         score_modeling: dimensions['造型']?.score || 2,
@@ -229,6 +270,9 @@ export async function POST(req: NextRequest) {
       total_score,
       grade,
       overall_feedback,
+      visual_description: (result as Record<string, unknown>).visual_description as string || '',
+      master_guidance: (result as Record<string, unknown>).master_guidance || null,
+      visual_reconstruction: (result as Record<string, unknown>).visual_reconstruction || null,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
