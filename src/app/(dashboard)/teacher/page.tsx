@@ -46,7 +46,6 @@ function computeClassStats(artworks: any[]) {
     score: Math.round((dimScores[DIM_LABELS[k]].reduce((a, b) => a + b, 0) / dimScores[DIM_LABELS[k]].length) * 10) / 10,
   }));
 
-  const sorted = Object.entries(avg_scores).sort((a, b) => avg_scores[b[0]].score - avg_scores[a[0]].score);
   const topDims = DIM_KEYS.map((k) => DIM_LABELS[k]).sort((a, b) => {
     const sa = dimScores[a].reduce((x, y) => x + y, 0) / dimScores[a].length;
     const sb = dimScores[b].reduce((x, y) => x + y, 0) / dimScores[b].length;
@@ -85,8 +84,8 @@ export default async function TeacherPage() {
     if (error) {
       fetchError = error.message;
     } else if (artworks) {
-      pendingArtworks = artworks.filter((a) => a.evaluations?.status === 'pending_review');
-      approvedArtworks = artworks.filter((a) => a.evaluations?.status === 'approved');
+      pendingArtworks = artworks.filter((a) => a.evaluations?.[0]?.status === 'pending_review');
+      approvedArtworks = artworks.filter((a) => a.evaluations?.[0]?.status === 'approved');
       classStats = computeClassStats(artworks);
     }
   } catch (e) {
